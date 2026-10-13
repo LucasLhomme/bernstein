@@ -1,0 +1,7 @@
+apiVersion: <version_de_l_api>   # Ex: apps/v1 pour les Deployments, v1 pour Services et PVC
+kind: <type_d_objet>            # Ex: Deployment, Service, PersistentVolumeClaim
+metadata:
+  name: <nom_unique>            # Le nom de ta ressource
+  labels:                       # Des étiquettes clé/valeur pour l'identifier
+    app: mon-app
+spec:                           # La spécification : ce que tu veux que K8s fasse
