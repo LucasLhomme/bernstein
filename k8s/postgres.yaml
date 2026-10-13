@@ -1,7 +1,90 @@
-apiVersion: <version_de_l_api>   # Ex: apps/v1 pour les Deployments, v1 pour Services et PVC
-kind: <type_d_objet>            # Ex: Deployment, Service, PersistentVolumeClaim
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: <nom_unique>            # Le nom de ta ressource
-  labels:                       # Des étiquettes clé/valeur pour l'identifier
-    app: mon-app
-spec:                           # La spécification : ce que tu veux que K8s fasse
+  name: postgres
+  labels:
+    app: postgres
+
+# Lis les spec
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+
+# ici on va définir le nom principalement du pods
+  template:
+    metadata:
+      labels:
+        app: postgres
+
+# ici on va définir le nom principalement du pods
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+
+# chargement de l'env
+          env:
+            - name: POSTGRES_DB
+              value: "polls"
+            - name: POSTGRES_USER
+              value: "polls"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+
+# config cb de ressources on va allouer pour le container
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+
+          # Montage des volumes
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            - name: postgres-init
+              mountPath: /docker-entrypoint-initdb.d/schema.sql
+              subPath: schema.sql
+
+# ici on définit les volumes pour le container, soit un PVC pour la persistance des données, soit un ConfigMap pour l'initialisation de la base de données
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+        - name: postgres-init
+          configMap:
+            name: postgres-schema
+---
+# Service pour exposer le déploiement PostgreSQL
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Service pour initialiser la base de données avec le schéma SQL
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
