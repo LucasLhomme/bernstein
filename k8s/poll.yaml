@@ -29,8 +29,6 @@ spec:
           env:
             - name: REDIS_HOST
               value: "redis"
-            - name: REDIS_PASSWORD
-              value: "polls"
           resources:
             requests:
               cpu: "100m"

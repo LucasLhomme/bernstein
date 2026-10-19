@@ -22,8 +22,6 @@ spec:
           env:
             - name: REDIS_HOST
               value: "redis"
-            - name: REDIS_PASSWORD
-              value: "polls"
             - name: POSTGRES_HOST
               value: "postgres"
             - name: POSTGRES_PORT
