@@ -1,7 +1,66 @@
-apiVersion: <version_de_l_api>   # Ex: apps/v1 pour les Deployments, v1 pour Services et PVC
-kind: <type_d_objet>            # Ex: Deployment, Service, PersistentVolumeClaim
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: <nom_unique>            # Le nom de ta ressource
-  labels:                       # Des étiquettes clé/valeur pour l'identifier
-    app: mon-app
-spec:                           # La spécification : ce que tu veux que K8s fasse
+  name: poll
+  labels:
+    app: poll
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: poll
+  template:
+    metadata:
+      labels:
+        app: poll
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: poll
+          image: ghcr.io/bernstein-epitech-lille-01/bernstein-poll:v1
+          ports:
+            - containerPort: 80
+          env:
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PASSWORD
+              value: "polls"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: poll
+  labels:
+    app: poll
+spec:
+  type: LoadBalancer
+  selector:
+    app: poll
+  ports:
+    - port: 80
+      targetPort: 80

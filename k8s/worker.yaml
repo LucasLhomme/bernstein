@@ -1,7 +1,58 @@
-apiVersion: <version_de_l_api>   # Ex: apps/v1 pour les Deployments, v1 pour Services et PVC
-kind: <type_d_objet>            # Ex: Deployment, Service, PersistentVolumeClaim
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: <nom_unique>            # Le nom de ta ressource
-  labels:                       # Des étiquettes clé/valeur pour l'identifier
-    app: mon-app
-spec:                           # La spécification : ce que tu veux que K8s fasse
+  name: worker
+  labels:
+    app: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: worker
+          image: ghcr.io/bernstein-epitech-lille-01/bernstein-worker:v1
+          env:
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PASSWORD
+              value: "polls"
+            - name: POSTGRES_HOST
+              value: "postgres"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: "polls"
+            - name: POSTGRES_USER
+              value: "polls"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10

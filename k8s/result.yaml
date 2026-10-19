@@ -1,7 +1,75 @@
-apiVersion: <version_de_l_api>   # Ex: apps/v1 pour les Deployments, v1 pour Services et PVC
-kind: <type_d_objet>            # Ex: Deployment, Service, PersistentVolumeClaim
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: <nom_unique>            # Le nom de ta ressource
-  labels:                       # Des étiquettes clé/valeur pour l'identifier
-    app: mon-app
-spec:                           # La spécification : ce que tu veux que K8s fasse
+  name: result
+  labels:
+    app: result
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: result
+  template:
+    metadata:
+      labels:
+        app: result
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: result
+          image: ghcr.io/bernstein-epitech-lille-01/bernstein-result:v1
+          ports:
+            - containerPort: 80
+          env:
+            - name: POSTGRES_HOST
+              value: "postgres"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: "polls"
+            - name: POSTGRES_USER
+              value: "polls"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: result
+  labels:
+    app: result
+spec:
+  type: LoadBalancer
+  selector:
+    app: result
+  ports:
+    - port: 80
+      targetPort: 80
