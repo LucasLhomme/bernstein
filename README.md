@@ -1,6 +1,8 @@
 # Bernstein - Poll Application
 
-Projet d'orchestration et de déploiement de la **Poll Application** sur un cluster **Kubernetes**, avec gestion des conteneurs via un registre privé (**GitHub Packages / GHCR**), persistance des données et tolérance aux pannes (**Zero-Downtime Update**).
+Projet d'orchestration et de déploiement de la **Poll Application** sur un cluster **Kubernetes**, avec gestion des conteneurs via un registre privé (**GitHub Packages / GHCR**), persistance des données, tolérance aux pannes (**Zero-Downtime Update**), **Autoscaling (HPA)** et **Pod Anti-Affinity**.
+
+> 📖 **Dossier technique & justifications d'architecture pour la soutenance :** [Consultez `docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pour retrouver l'ensemble des justifications théoriques (multi-nœuds, affinité, réplicas, autoscaling, load balancing, restart policies, classes de QoS).
 
 ---
 
@@ -153,7 +155,35 @@ Le script se charge de :
 
 ---
 
-## 🔄 Mise à jour sans interruption (Zero-Downtime Update)
+## 📈 Autoscaling Horizontal (HPA)
+
+Le projet intègre un Horizontal Pod Autoscaler sur `poll` et `result` basé sur la consommation CPU (seuil à 70%, 2 à 10 réplicas) :
+
+```bash
+kubectl get hpa
+```
+
+Pour observer le comportement sous charge ou tester l'autoscaling :
+```bash
+# Générer du trafic de test vers poll
+kubectl run -i --tty load-generator --rm --image=busybox:1.36 --restart=Never -- /bin/sh -c "while true; do wget -q -O- http://poll; done"
+```
+
+---
+
+## 📚 Documentation Technique
+
+Pour les détails d'ingénierie et la justification des choix évalués lors de la soutenance, consultez le dossier technique dédié :
+* **[Dossier d'Architecture et Justifications](docs/ARCHITECTURE.md)** (`docs/ARCHITECTURE.md`) :
+  1. Topologie du Cluster & Notion de Nœuds (Control Plane vs Workers, Multi-nœuds)
+  2. Politiques d'Affinité & Anti-Affinité (`podAntiAffinity` multi-nœuds)
+  3. Justification du Nombre de Réplicas (Stateless vs Stateful, cas critique de Redis)
+  4. Stratégie Réseau & Load Balancing (L4 vs L7, Sticky Sessions Socket.IO)
+  5. Autoscaling Horizontal (HPA) & Cluster Autoscaling
+  6. Politiques de Redémarrage (`restartPolicy: Always`, CrashLoopBackOff)
+  7. Allocation des Ressources & Classes de Qualité de Service (Requests/Limits, Burstable)
+  8. Persistance des Données & Stratégies de Déploiement (`ReadWriteOnce`, `Recreate` vs `RollingUpdate`)
+  9. Sondes de Santé (`readinessProbe` & `livenessProbe`) et Zéro-Downtime
 
 Le projet implémente une stratégie de **RollingUpdate** couplée à des sondes de santé (`readinessProbe` et `livenessProbe`) sur les services web :
 

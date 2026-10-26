@@ -19,6 +19,18 @@ spec:
       labels:
         app: result
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - result
+                topologyKey: "kubernetes.io/hostname"
       imagePullSecrets:
         - name: ghcr-secret
       containers:
@@ -68,6 +80,10 @@ metadata:
     app: result
 spec:
   type: LoadBalancer
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
   selector:
     app: result
   ports:

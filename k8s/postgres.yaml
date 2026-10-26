@@ -8,6 +8,8 @@ metadata:
 # Lis les spec
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: postgres
@@ -37,7 +39,8 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_PASSWORD
-
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
 # config cb de ressources on va allouer pour le container
           resources:
             requests:
@@ -46,7 +49,16 @@ spec:
             limits:
               cpu: "500m"
               memory: "256Mi"
-
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "polls", "-d", "polls"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "polls", "-d", "polls"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
           # Montage des volumes
           volumeMounts:
             - name: postgres-data
@@ -69,6 +81,8 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-pvc
+  labels:
+    app: postgres
 spec:
   accessModes:
     - ReadWriteOnce
@@ -81,6 +95,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
+  labels:
+    app: postgres
 spec:
   type: ClusterIP
   selector:
