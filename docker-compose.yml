@@ -34,7 +34,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-polls}
     volumes:
       - db-data:/var/lib/postgresql
-      - ./poll-application/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - ./poll/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -45,7 +45,7 @@ services:
     restart: unless-stopped
 
   poll:
-    build: ./poll-application/poll
+    build: ./poll
     environment:
       <<: *redis-env
     ports:
@@ -59,7 +59,7 @@ services:
     restart: unless-stopped
 
   worker:
-    build: ./poll-application/worker
+    build: ./worker
     environment:
       <<: [*redis-env, *postgres-env]
     depends_on:
@@ -72,7 +72,7 @@ services:
     restart: unless-stopped
 
   result:
-    build: ./poll-application/result
+    build: ./result
     environment:
       <<: *postgres-env
     ports:

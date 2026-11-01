@@ -5,7 +5,6 @@ metadata:
   labels:
     app: result
 spec:
-  replicas: 2
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -19,6 +18,7 @@ spec:
       labels:
         app: result
     spec:
+      restartPolicy: Always
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -80,6 +80,7 @@ metadata:
     app: result
 spec:
   type: LoadBalancer
+  externalTrafficPolicy: Local
   sessionAffinity: ClientIP
   sessionAffinityConfig:
     clientIP:
@@ -89,3 +90,15 @@ spec:
   ports:
     - port: 80
       targetPort: 80
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: result-pdb
+  labels:
+    app: result
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: result

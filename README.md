@@ -1,8 +1,8 @@
 # Bernstein - Poll Application
 
-Projet d'orchestration et de déploiement de la **Poll Application** sur un cluster **Kubernetes**, avec gestion des conteneurs via un registre privé (**GitHub Packages / GHCR**), persistance des données, tolérance aux pannes (**Zero-Downtime Update**), **Autoscaling (HPA)** et **Pod Anti-Affinity**.
+Projet d'orchestration et de déploiement de la **Poll Application** sur un cluster **Kubernetes**, avec gestion des conteneurs via un registre privé (**GitHub Packages / GHCR**), persistance des données, tolérance aux pannes (**Zero-Downtime Update**), **Autoscaling (HPA)**, **Pod Anti-Affinity** et **PodDisruptionBudgets**.
 
-> 📖 **Dossier technique & justifications d'architecture pour la soutenance :** [Consultez `docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pour retrouver l'ensemble des justifications théoriques (multi-nœuds, affinité, réplicas, autoscaling, load balancing, restart policies, classes de QoS).
+> 📖 **Dossier technique & justifications d'architecture :** [Consultez `docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pour l'ensemble des justifications (nombre de nœuds, affinité, réplicas, autoscaling, load balancing, restart policies, ressources et classes de QoS).
 
 ---
 
@@ -15,16 +15,16 @@ poll --(RPUSH votes)--> Redis --(BLPOP votes)--> worker --(UPSERT)--> PostgreSQL
 ```
 
 * **poll** (Python / Flask) : Interface web permettant aux utilisateurs de voter. Les votes sont envoyés dans une file Redis (`votes`). Exposé publiquement via un `LoadBalancer`.
-* **redis** (Redis 8) : File d'attente en mémoire tampon reliant l'application de vote et le worker. Service interne `ClusterIP`.
+* **redis** (`redis:8-alpine`) : File d'attente en mémoire tampon reliant l'application de vote et le worker. Service interne `ClusterIP`.
 * **worker** (Java 25) : Consomme les messages de Redis et les insère / met à jour dans la base PostgreSQL.
-* **postgres** (PostgreSQL 15/18) : Base relationnelle stockant les votes de manière persistante via un `PersistentVolumeClaim` (PVC). Initialisée au premier démarrage avec `poll/schema.sql`.
+* **postgres** (`postgres:15-alpine`) : Base relationnelle stockant les votes de manière persistante via un `PersistentVolumeClaim` (PVC). Initialisée au premier démarrage avec `poll/schema.sql`.
 * **result** (Node.js / Express + Socket.IO) : Affiche en temps réel le décompte des votes aux utilisateurs. Exposé publiquement via un `LoadBalancer`.
 
 ---
 
 ## 📋 Prérequis
 
-* Un cluster Kubernetes opérationnel (AKS, EKS, GKE, ou Minikube / K3s en local).
+* Un cluster Kubernetes opérationnel avec **au moins 2 nœuds** (AKS recommandé, voir [docs/ARCHITECTURE.md §2.3](docs/ARCHITECTURE.md#23-pourquoi-2-nœuds-et-pas-1-ou-5--le-calcul)) et le `metrics-server` (présent par défaut sur AKS, nécessaire au HPA).
 * `kubectl` configuré et connecté au cluster.
 * `docker` installé pour le build des images.
 * Un compte GitHub avec un Personal Access Token (PAT) disposant des droits `read:packages` et `write:packages` sur GHCR.
@@ -54,7 +54,7 @@ Conformément aux exigences du sujet, les identifiants et secrets sensibles ne s
    POSTGRES_USER=polls
    POSTGRES_PASSWORD=mon_super_password
 
-   # Redis
+   # Redis (docker-compose uniquement, non utilisé sur Kubernetes)
    REDIS_PASSWORD=polls
 
    # Namespace Kubernetes (optionnel)
@@ -67,7 +67,7 @@ Conformément aux exigences du sujet, les identifiants et secrets sensibles ne s
 
 ### Option 1 : Déploiement automatique (Recommandé)
 
-Le script [deploy.sh](file:///home/crabe/Dev/Epitech/tek3/DEVOPS/G-DOP-500-LIL-5-1-bernstein-2/deploy.sh) automatise l'ensemble des étapes : chargement du `.env`, création idempotente des secrets (`ghcr-secret` et `postgres-secret`), création du `ConfigMap` pour PostgreSQL, puis application des manifests Kubernetes.
+Le script [deploy.sh](deploy.sh) automatise l'ensemble des étapes : chargement du `.env`, création idempotente des secrets (`ghcr-secret` et `postgres-secret`), création du `ConfigMap` pour PostgreSQL, puis application des manifests Kubernetes.
 
 ```bash
 chmod +x deploy.sh
@@ -141,7 +141,7 @@ Le script se charge de :
    ```bash
    kubectl get pods -w
    ```
-   Tous les pods doivent être à l'état `Running` et `READY 1/1` (ou `2/2` pour les services répliqués).
+   Tous les pods doivent être à l'état `Running` et `READY 1/1` (`poll` et `result` : 2 pods chacun, créés par le HPA quelques secondes après le déploiement).
 
 2. Récupérez les adresses IP externes des services :
    ```bash
@@ -149,7 +149,12 @@ Le script se charge de :
    ```
 
 * **Poll** : Ouvrez l'adresse `http://<EXTERNAL-IP>` pour soumettre un vote.
-* **Result** : Ouvrez l'adresse `http://<EXTERNAL-IP>` pour visualiser les résultats mis à jour en direct via WebSockets.
+* **Result** : Ouvrez l'adresse `http://<EXTERNAL-IP>` pour visualiser les résultats mis à jour en direct (Socket.IO en long-polling HTTP).
+
+3. Vérifiez l'autoscaling et les PodDisruptionBudgets :
+   ```bash
+   kubectl get hpa,pdb
+   ```
 
 *(Sur Minikube en local, exécutez `minikube tunnel` dans un terminal séparé pour allouer les External-IPs des LoadBalancers).*
 
@@ -173,17 +178,18 @@ kubectl run -i --tty load-generator --rm --image=busybox:1.36 --restart=Never --
 
 ## 📚 Documentation Technique
 
-Pour les détails d'ingénierie et la justification des choix évalués lors de la soutenance, consultez le dossier technique dédié :
+Pour les détails d'ingénierie et la justification des choix, consultez le dossier technique dédié :
 * **[Dossier d'Architecture et Justifications](docs/ARCHITECTURE.md)** (`docs/ARCHITECTURE.md`) :
-  1. Topologie du Cluster & Notion de Nœuds (Control Plane vs Workers, Multi-nœuds)
-  2. Politiques d'Affinité & Anti-Affinité (`podAntiAffinity` multi-nœuds)
-  3. Justification du Nombre de Réplicas (Stateless vs Stateful, cas critique de Redis)
-  4. Stratégie Réseau & Load Balancing (L4 vs L7, Sticky Sessions Socket.IO)
-  5. Autoscaling Horizontal (HPA) & Cluster Autoscaling
-  6. Politiques de Redémarrage (`restartPolicy: Always`, CrashLoopBackOff)
-  7. Allocation des Ressources & Classes de Qualité de Service (Requests/Limits, Burstable)
-  8. Persistance des Données & Stratégies de Déploiement (`ReadWriteOnce`, `Recreate` vs `RollingUpdate`)
-  9. Sondes de Santé (`readinessProbe` & `livenessProbe`) et Zéro-Downtime
+  1. Architecture globale & flux applicatif
+  2. Topologie du cluster & calcul du nombre de nœuds
+  3. Affinité, anti-affinité & PodDisruptionBudgets (`kubectl drain`)
+  4. Justification du nombre de réplicas (cas critique de Redis)
+  5. Stratégie réseau & load balancing (`externalTrafficPolicy`, affinité Socket.IO, L4 vs L7)
+  6. Autoscaling : HPA, worker (KEDA), Cluster Autoscaler, VPA
+  7. Politiques de redémarrage (`restartPolicy: Always`, CrashLoopBackOff)
+  8. Ressources par service & classes de QoS (Burstable / Guaranteed)
+  9. Persistance des données & stratégie `Recreate`
+  10. Sondes de santé (`readinessProbe` & `livenessProbe`) et zéro-downtime
 
 Le projet implémente une stratégie de **RollingUpdate** couplée à des sondes de santé (`readinessProbe` et `livenessProbe`) sur les services web :
 

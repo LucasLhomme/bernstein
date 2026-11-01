@@ -18,6 +18,21 @@ spec:
         target:
           type: Utilization
           averageUtilization: 70
+  behavior:
+    # Montée rapide : on peut doubler le nombre de pods toutes les 15 s.
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+    # Descente prudente : 5 min de calme, puis 1 pod retiré par minute (évite le yo-yo).
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -39,4 +54,16 @@ spec:
         target:
           type: Utilization
           averageUtilization: 70
-
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60

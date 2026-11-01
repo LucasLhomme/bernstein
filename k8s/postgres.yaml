@@ -5,23 +5,24 @@ metadata:
   labels:
     app: postgres
 
-# Lis les spec
 spec:
+  # Strictement 1 : PostgreSQL n'est pas multi-maître et le volume est en ReadWriteOnce.
   replicas: 1
+  # Recreate : l'ancien pod libère le disque avant que le nouveau ne l'attache (pas de "Multi-Attach error").
   strategy:
     type: Recreate
   selector:
     matchLabels:
       app: postgres
 
-# ici on va définir le nom principalement du pods
+# modèle du pod créé par le Deployment
   template:
     metadata:
       labels:
         app: postgres
 
-# ici on va définir le nom principalement du pods
     spec:
+      restartPolicy: Always
       containers:
         - name: postgres
           image: postgres:15-alpine
@@ -41,14 +42,13 @@ spec:
                   key: POSTGRES_PASSWORD
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
-# config cb de ressources on va allouer pour le container
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: "250m"
+              memory: "512Mi"
             limits:
-              cpu: "500m"
-              memory: "256Mi"
+              cpu: "250m"
+              memory: "512Mi"
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", "polls", "-d", "polls"]
@@ -76,7 +76,7 @@ spec:
           configMap:
             name: postgres-schema
 ---
-# Service pour exposer le déploiement PostgreSQL
+# Disque persistant des données PostgreSQL (survit à la suppression du pod)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -90,7 +90,7 @@ spec:
     requests:
       storage: 1Gi
 ---
-# Service pour initialiser la base de données avec le schéma SQL
+# Service interne (ClusterIP) : PostgreSQL n'est joignable que depuis le cluster
 apiVersion: v1
 kind: Service
 metadata:

@@ -14,6 +14,7 @@ spec:
       labels:
         app: worker
     spec:
+      restartPolicy: Always
       imagePullSecrets:
         - name: ghcr-secret
       containers:
@@ -37,13 +38,15 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_PASSWORD
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:MaxRAMPercentage=75.0"
           resources:
             requests:
               cpu: "100m"
-              memory: "128Mi"
+              memory: "256Mi"
             limits:
               cpu: "500m"
-              memory: "256Mi"
+              memory: "384Mi"
           readinessProbe:
             httpGet:
               path: /readyz

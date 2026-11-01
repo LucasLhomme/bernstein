@@ -5,7 +5,8 @@ metadata:
   labels:
     app: poll
 spec:
-  replicas: 2
+  # Pas de "replicas" : c'est le HPA (hpa.yaml) qui gère le nombre de pods entre 2 et 10.
+  # Le fixer ici le remettrait à 2 à chaque "kubectl apply", même en pleine montée en charge.
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -19,6 +20,7 @@ spec:
       labels:
         app: poll
     spec:
+      restartPolicy: Always
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -74,3 +76,17 @@ spec:
   ports:
     - port: 80
       targetPort: 80
+---
+# Pendant un "kubectl drain" (maintenance d'un nœud), Kubernetes refuse d'évincer
+# un pod poll si cela laisse moins de 1 pod disponible.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: poll-pdb
+  labels:
+    app: poll
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: poll
