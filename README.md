@@ -1,5 +1,10 @@
 # Bernstein - Poll Application
 
+[![School: Epitech](https://img.shields.io/badge/School-Epitech-005696.svg)](https://www.epitech.eu/)
+[![Academic Year: 2026-2027](https://img.shields.io/badge/Academic%20Year-2026--2027%20(Tek3)-blueviolet.svg)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+
 Projet d'orchestration et de déploiement de la **Poll Application** sur un cluster **Kubernetes**, avec gestion des conteneurs via un registre privé (**GitHub Packages / GHCR**), persistance des données, tolérance aux pannes (**Zero-Downtime Update**), **Autoscaling (HPA)**, **Pod Anti-Affinity** et **PodDisruptionBudgets**.
 
 > 📖 **Dossier technique & justifications d'architecture :** [Consultez `docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pour l'ensemble des justifications (nombre de nœuds, affinité, réplicas, autoscaling, load balancing, restart policies, ressources et classes de QoS).
